@@ -27,7 +27,8 @@ share(Secret, Threshold, Count) when is_list(Secret) ->
 
 share(Secret, Threshold, Count) when (Secret >= 0 andalso Secret =< 255) ->
     GF = galois:generate(8),
-    Coeffs = binary_to_list(crypto:rand_bytes(Threshold - 1)) ++ [Secret],
+    Coeffs = binary_to_list(crypto:strong_rand_bytes(Threshold - 1)) ++
+        [Secret],
     [horner(GF, X, Coeffs) || X <- lists:seq(1, Count)].
 
 horner(GF, X, Coeffs) ->
@@ -45,12 +46,13 @@ recover([#share{threshold=Threshold}|_]=Shares0) ->
     X = [X || #share{x=X} <- Shares],
     Ys = transpose(lists:map(fun(#share{y=Y}) ->
         binary_to_list(Y) end, Shares)),
-    list_to_binary([recover(Threshold, Z) || Z <- [lists:zip(X, Y) || Y <- Ys]]).
+    list_to_binary([recover(Threshold, Z) ||
+                       Z <- [lists:zip(X, Y) || Y <- Ys]]).
 
 recover(Threshold, Shares) when length(Shares) >= Threshold ->
     lagrange(lists:sublist(Shares, Threshold)).
 
-lagrange(Shares) ->    
+lagrange(Shares) ->
     GF = galois:generate(8),
     lists:foldl(fun(Share, Acc) ->
         galois:add(GF, lagrange(GF, Share, Shares), Acc) end,
